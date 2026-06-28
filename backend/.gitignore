@@ -1,0 +1,48 @@
+HELP.md
+
+# === Maven / Gradle ===
+target/
+build/
+.mvn/wrapper/maven-wrapper.jar
+*.jar
+*.war
+
+# === IDE ===
+.idea/
+*.iws
+*.iml
+*.ipr
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+.apt_generated
+.vscode/
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# === 日志 ===
+*.log
+*.log.*
+logs/
+
+# === 本地配置（敏感信息） ===
+application-local.yml
+application-local.properties
+application-dev-local.yml
+.env
+
+# === 操作系统文件 ===
+.DS_Store
+Thumbs.db
+
+# === 临时文件 ===
+*.tmp
+*.temp
+*.swp
+*.swo

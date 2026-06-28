@@ -1,0 +1,46 @@
+server:
+  port: 5000
+
+spring:
+  application:
+    name: internship-report-system
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/internship_report?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: ${DB_PASSWORD:}
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+  web:
+    resources:
+      add-mappings: false
+  mvc:
+    throw-exception-if-no-handler-found: true
+
+jwt:
+  secret: ${JWT_SECRET:}
+  expiration: 86400000
+
+file:
+  upload-dir: ${UPLOAD_DIR:./uploads}
+
+logging:
+  level:
+    com.internship.report: DEBUG
+    org.springframework.security: INFO
+  file:
+    name: internship.log

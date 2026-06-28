@@ -1,0 +1,418 @@
+-- =============================================
+-- ⚠️ 警告：此文件包含测试数据，仅供开发环境使用！
+-- 生产环境请使用独立的数据初始化流程。
+-- =============================================
+-- =============================================
+-- 毕业生实习汇报系统 - MySQL完整数据库初始化脚本
+-- 版本: 2.2.0 (可直接执行版)
+-- 功能: 用户/实习/汇报/附件/企业/定位/通知/评价/导出记录
+-- 修复: 外键约束导致的执行中断问题
+-- 数据库: MySQL 8.0+
+-- 字符集: utf8mb4
+-- =============================================
+
+-- 临时关闭外键约束检查（防止删除表时因依赖关系报错）
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS `internship_report`
+    DEFAULT CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
+
+USE `internship_report`;
+
+-- =============================================
+-- 一、基础表 
+-- =============================================
+
+-- 1. 用户表
+DROP TABLE IF EXISTS `users`;
+CREATE TABLE `users` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+    `username` VARCHAR(50) NOT NULL COMMENT '用户名',
+    `password` VARCHAR(255) NOT NULL COMMENT '密码(加密)',
+    `real_name` VARCHAR(50) NOT NULL COMMENT '真实姓名',
+    `email` VARCHAR(100) DEFAULT NULL COMMENT '邮箱',
+    `phone` VARCHAR(20) DEFAULT NULL COMMENT '电话',
+    `role` VARCHAR(20) NOT NULL COMMENT '角色: STUDENT-学生, TEACHER-导师, ADMIN-管理员',
+    `student_no` VARCHAR(50) DEFAULT NULL COMMENT '学号(学生)',
+    `department` VARCHAR(50) DEFAULT NULL COMMENT '院系',
+    `major` VARCHAR(50) DEFAULT NULL COMMENT '专业',
+    `class_name` VARCHAR(20) DEFAULT NULL COMMENT '班级',
+    `avatar` VARCHAR(255) DEFAULT NULL COMMENT '头像URL',
+    `status` VARCHAR(20) DEFAULT 'ACTIVE' COMMENT '状态: ACTIVE-正常, INACTIVE-禁用, GRADUATED-已毕业',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_username` (`username`),
+    KEY `idx_role` (`role`),
+    KEY `idx_status` (`status`),
+    KEY `idx_student_no` (`student_no`),
+    KEY `idx_department` (`department`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+
+-- 2. 企业表 
+DROP TABLE IF EXISTS `companies`;
+CREATE TABLE `companies` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '企业ID',
+    `name` VARCHAR(100) NOT NULL COMMENT '企业名称',
+    `industry` VARCHAR(50) DEFAULT NULL COMMENT '所属行业',
+    `address` VARCHAR(200) DEFAULT NULL COMMENT '详细地址',
+    `city` VARCHAR(20) DEFAULT NULL COMMENT '所在城市',
+    `province` VARCHAR(20) DEFAULT NULL COMMENT '所在省份',
+    `contact_name` VARCHAR(50) DEFAULT NULL COMMENT '联系人',
+    `contact_phone` VARCHAR(20) DEFAULT NULL COMMENT '联系电话',
+    `contact_email` VARCHAR(100) DEFAULT NULL COMMENT '联系邮箱',
+    `description` VARCHAR(500) DEFAULT NULL COMMENT '企业描述',
+    `logo_url` VARCHAR(255) DEFAULT NULL COMMENT '企业Logo',
+    `website` VARCHAR(100) DEFAULT NULL COMMENT '企业官网',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态: ACTIVE-正常, INACTIVE-暂停, BLACKLISTED-黑名单',
+    `student_count` INT NOT NULL DEFAULT 0 COMMENT '实习学生数',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_name` (`name`),
+    KEY `idx_status` (`status`),
+    KEY `idx_city` (`city`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='企业表';
+
+-- 3. 实习信息表
+DROP TABLE IF EXISTS `internships`;
+CREATE TABLE `internships` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '实习ID',
+    `student_id` BIGINT NOT NULL COMMENT '学生ID',
+    `teacher_id` BIGINT DEFAULT NULL COMMENT '指导老师ID',
+    `company_id` BIGINT DEFAULT NULL COMMENT '企业ID(v2.0新增)',
+    `company` VARCHAR(100) NOT NULL COMMENT '实习单位',
+    `company_name` VARCHAR(100) DEFAULT NULL COMMENT '企业名称冗余(v2.0新增)',
+    `position` VARCHAR(100) DEFAULT NULL COMMENT '实习岗位',
+    `address` VARCHAR(200) DEFAULT NULL COMMENT '实习地址',
+    `company_contact` VARCHAR(200) DEFAULT NULL COMMENT '企业联系人',
+    `company_phone` VARCHAR(20) DEFAULT NULL COMMENT '企业联系电话',
+    `start_date` DATE NOT NULL COMMENT '开始日期',
+    `end_date` DATE NOT NULL COMMENT '结束日期',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'ONGOING' COMMENT '状态: DRAFT-草稿, PENDING-待审核, ONGOING-进行中, COMPLETED-已完成, REJECTED-已驳回',
+    `description` VARCHAR(500) DEFAULT NULL COMMENT '实习描述',
+    `teacher_comment` VARCHAR(500) DEFAULT NULL COMMENT '导师评语',
+    `work_content` TEXT DEFAULT NULL COMMENT '工作内容',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_student_id` (`student_id`),
+    KEY `idx_teacher_id` (`teacher_id`),
+    KEY `idx_status` (`status`),
+    KEY `idx_company_id` (`company_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='实习信息表';
+
+-- 4. 汇报表
+DROP TABLE IF EXISTS `reports`;
+CREATE TABLE `reports` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '汇报ID',
+    `internship_id` BIGINT NOT NULL COMMENT '实习ID',
+    `student_id` BIGINT NOT NULL COMMENT '学生ID',
+    `title` VARCHAR(100) NOT NULL COMMENT '汇报标题',
+    `report_type` VARCHAR(20) NOT NULL COMMENT '汇报类型: WEEKLY-周报, MONTHLY-月报, FINAL-总结报告',
+    `content` TEXT DEFAULT NULL COMMENT '汇报内容',
+    `summary` TEXT DEFAULT NULL COMMENT '工作总结',
+    `problem` TEXT DEFAULT NULL COMMENT '遇到的问题',
+    `solution` TEXT DEFAULT NULL COMMENT '解决方案',
+    `plan` TEXT DEFAULT NULL COMMENT '下周计划',
+    `report_date` DATE DEFAULT NULL COMMENT '汇报日期',
+    `week_number` INT DEFAULT NULL COMMENT '第几周',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'DRAFT' COMMENT '状态: DRAFT-草稿, SUBMITTED-已提交, REVIEWED-已批阅, RETURNED-已退回',
+    `reviewer_id` BIGINT DEFAULT NULL COMMENT '批阅人ID',
+    `review_comment` TEXT DEFAULT NULL COMMENT '批阅意见',
+    `score` INT DEFAULT NULL COMMENT '评分(0-100)',
+    `review_time` DATETIME DEFAULT NULL COMMENT '批阅时间',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_internship_id` (`internship_id`),
+    KEY `idx_student_id` (`student_id`),
+    KEY `idx_reviewer_id` (`reviewer_id`),
+    KEY `idx_report_type` (`report_type`),
+    KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='汇报表';
+
+-- 5. 附件表
+DROP TABLE IF EXISTS `attachments`;
+CREATE TABLE `attachments` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '附件ID',
+    `report_id` BIGINT DEFAULT NULL COMMENT '汇报ID',
+    `internship_id` BIGINT DEFAULT NULL COMMENT '实习ID',
+    `uploader_id` BIGINT NOT NULL COMMENT '上传者ID',
+    `file_name` VARCHAR(200) NOT NULL COMMENT '原始文件名',
+    `stored_name` VARCHAR(200) NOT NULL COMMENT '存储文件名',
+    `file_path` VARCHAR(500) NOT NULL COMMENT '文件路径',
+    `file_size` BIGINT NOT NULL COMMENT '文件大小(字节)',
+    `file_type` VARCHAR(50) DEFAULT NULL COMMENT '文件类型',
+    `attachment_type` VARCHAR(20) NOT NULL DEFAULT 'OTHER' COMMENT '附件类型: REPORT-汇报附件, INTERNSHIP-实习证明, CERTIFICATE-证书, OTHER-其他',
+    `upload_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_report_id` (`report_id`),
+    KEY `idx_internship_id` (`internship_id`),
+    KEY `idx_uploader_id` (`uploader_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='附件表';
+
+-- 6. 位置记录表
+DROP TABLE IF EXISTS `location_records`;
+CREATE TABLE `location_records` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+    `student_id` BIGINT NOT NULL COMMENT '学生ID',
+    `internship_id` BIGINT DEFAULT NULL COMMENT '实习ID',
+    `longitude` DECIMAL(10, 6) NOT NULL COMMENT '经度',
+    `latitude` DECIMAL(10, 6) NOT NULL COMMENT '纬度',
+    `address` VARCHAR(200) DEFAULT NULL COMMENT '地址',
+    `city` VARCHAR(50) DEFAULT NULL COMMENT '城市',
+    `province` VARCHAR(50) DEFAULT NULL COMMENT '省份',
+    `record_type` VARCHAR(20) DEFAULT 'AUTO' COMMENT '记录类型: CHECK_IN-上班打卡, CHECK_OUT-下班打卡, AUTO-自动, MANUAL-手动',
+    `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    `record_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_student_id` (`student_id`),
+    KEY `idx_internship_id` (`internship_id`),
+    KEY `idx_city` (`city`),
+    KEY `idx_record_time` (`record_time`),
+    KEY `idx_record_type` (`record_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='位置记录表';
+
+-- 7. 通知表 
+DROP TABLE IF EXISTS `notifications`;
+CREATE TABLE `notifications` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知ID',
+    `recipient_id` BIGINT NOT NULL COMMENT '接收者ID',
+    `title` VARCHAR(200) NOT NULL COMMENT '通知标题',
+    `content` VARCHAR(1000) NOT NULL COMMENT '通知内容',
+    `type` VARCHAR(30) NOT NULL COMMENT '通知类型: SYSTEM-系统, INTERNSHIP-实习, REPORT-汇报, CHECKIN-签到',
+    `related_type` VARCHAR(50) DEFAULT NULL COMMENT '关联类型',
+    `related_id` BIGINT DEFAULT NULL COMMENT '关联ID',
+    `is_read` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已读',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_recipient` (`recipient_id`),
+    KEY `idx_unread` (`recipient_id`, `is_read`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知表';
+
+-- 8. 评价表 
+DROP TABLE IF EXISTS `evaluations`;
+CREATE TABLE `evaluations` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '评价ID',
+    `internship_id` BIGINT NOT NULL COMMENT '实习ID',
+    `student_id` BIGINT NOT NULL COMMENT '学生ID',
+    `evaluator_id` BIGINT NOT NULL COMMENT '评价人ID',
+    `evaluator_type` VARCHAR(50) DEFAULT NULL COMMENT '评价人类型',
+    `work_performance` INT NOT NULL COMMENT '工作表现(1-5)',
+    `learning_ability` INT NOT NULL COMMENT '学习能力(1-5)',
+    `communication` INT NOT NULL COMMENT '沟通能力(1-5)',
+    `punctuality` INT NOT NULL COMMENT '准时性(1-5)',
+    `overall` INT NOT NULL COMMENT '综合评分(1-5)',
+    `strengths` VARCHAR(1000) DEFAULT NULL COMMENT '优点',
+    `weaknesses` VARCHAR(1000) DEFAULT NULL COMMENT '不足',
+    `suggestions` VARCHAR(1000) DEFAULT NULL COMMENT '建议',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_student` (`student_id`),
+    KEY `idx_internship` (`internship_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评价表';
+
+-- 9. 导出记录表 
+DROP TABLE IF EXISTS `export_records`;
+CREATE TABLE `export_records` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '导出ID',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `export_type` VARCHAR(50) NOT NULL COMMENT '导出类型: CHECKIN-签到, REPORT-汇报, STUDENT-学生',
+    `file_name` VARCHAR(255) NOT NULL COMMENT '文件名',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='导出记录表';
+
+-- =============================================
+-- 二、添加外键约束 (此时才开启检查)
+-- =============================================
+
+-- internships 外键
+ALTER TABLE `internships`
+    ADD CONSTRAINT `fk_internship_student` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT,
+    ADD CONSTRAINT `fk_internship_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+    ADD CONSTRAINT `fk_internship_company` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE SET NULL;
+
+-- reports 外键
+ALTER TABLE `reports`
+    ADD CONSTRAINT `fk_report_internship` FOREIGN KEY (`internship_id`) REFERENCES `internships` (`id`) ON DELETE CASCADE,
+    ADD CONSTRAINT `fk_report_student` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT,
+    ADD CONSTRAINT `fk_report_reviewer` FOREIGN KEY (`reviewer_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
+-- attachments 外键
+ALTER TABLE `attachments`
+    ADD CONSTRAINT `fk_attachment_report` FOREIGN KEY (`report_id`) REFERENCES `reports` (`id`) ON DELETE CASCADE,
+    ADD CONSTRAINT `fk_attachment_internship` FOREIGN KEY (`internship_id`) REFERENCES `internships` (`id`) ON DELETE CASCADE,
+    ADD CONSTRAINT `fk_attachment_uploader` FOREIGN KEY (`uploader_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT;
+
+-- location_records 外键
+ALTER TABLE `location_records`
+    ADD CONSTRAINT `fk_location_student` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    ADD CONSTRAINT `fk_location_internship` FOREIGN KEY (`internship_id`) REFERENCES `internships` (`id`) ON DELETE SET NULL;
+
+-- notifications 外键
+ALTER TABLE `notifications`
+    ADD CONSTRAINT `fk_notification_recipient` FOREIGN KEY (`recipient_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+-- evaluations 外键
+ALTER TABLE `evaluations`
+    ADD CONSTRAINT `fk_evaluation_internship` FOREIGN KEY (`internship_id`) REFERENCES `internships` (`id`) ON DELETE CASCADE,
+    ADD CONSTRAINT `fk_evaluation_student` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    ADD CONSTRAINT `fk_evaluation_evaluator` FOREIGN KEY (`evaluator_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+-- =============================================
+-- 三、初始化用户数据
+-- =============================================
+
+-- 管理员
+INSERT INTO `users` (`username`, `password`, `real_name`, `email`, `phone`, `role`, `status`) VALUES
+('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '系统管理员', 'admin@example.com', '13800000000', 'ADMIN', 'ACTIVE');
+
+-- 导师
+INSERT INTO `users` (`username`, `password`, `real_name`, `email`, `phone`, `role`, `department`, `status`) VALUES
+('teacher1', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '张教授', 'teacher1@example.com', '13900000001', 'TEACHER', '计算机学院', 'ACTIVE'),
+('teacher2', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '李教授', 'teacher2@example.com', '13900000002', 'TEACHER', '计算机学院', 'ACTIVE'),
+('teacher3', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '王教授', 'teacher3@example.com', '13900000003', 'TEACHER', '软件学院', 'ACTIVE');
+
+-- 学生
+INSERT INTO `users` (`username`, `password`, `real_name`, `email`, `phone`, `role`, `student_no`, `department`, `major`, `class_name`, `status`) VALUES
+('student1', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '张三', 'student1@example.com', '13800001001', 'STUDENT', '20210001', '计算机学院', '软件工程', '软件2101班', 'ACTIVE'),
+('student2', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '李四', 'student2@example.com', '13800001002', 'STUDENT', '20210002', '计算机学院', '软件工程', '软件2101班', 'ACTIVE'),
+('student3', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '王五', 'student3@example.com', '13800001003', 'STUDENT', '20210003', '计算机学院', '计算机科学', '计科2101班', 'ACTIVE'),
+('student4', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '赵六', 'student4@example.com', '13800001004', 'STUDENT', '20210004', '计算机学院', '软件工程', '软件2101班', 'ACTIVE'),
+('student5', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '钱七', 'student5@example.com', '13800001005', 'STUDENT', '20210005', '计算机学院', '网络工程', '网络2101班', 'ACTIVE'),
+('student6', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '孙八', 'student6@example.com', '13800001006', 'STUDENT', '20210006', '软件学院', '软件工程', '软件2102班', 'ACTIVE'),
+('student7', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '周九', 'student7@example.com', '13800001007', 'STUDENT', '20210007', '软件学院', '软件工程', '软件2102班', 'ACTIVE'),
+('student8', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '吴十', 'student8@example.com', '13800001008', 'STUDENT', '20210008', '软件学院', '数据科学', '数据2101班', 'ACTIVE'),
+('student9', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '郑十一', 'student9@example.com', '13800001009', 'STUDENT', '20210009', '计算机学院', '人工智能', '智能2101班', 'ACTIVE'),
+('student10', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '冯十二', 'student10@example.com', '13800001010', 'STUDENT', '20210010', '计算机学院', '人工智能', '智能2101班', 'ACTIVE');
+
+-- =============================================
+-- 四、初始化企业数据
+-- =============================================
+INSERT INTO `companies` (`name`, `industry`, `city`, `province`, `address`, `contact_name`, `contact_phone`, `description`, `status`) VALUES
+('阿里巴巴集团', '互联网/电商', '杭州市', '浙江省', '浙江省杭州市余杭区文一西路969号', 'HR李经理', '0571-12345678', '全球领先的电子商务公司', 'ACTIVE'),
+('腾讯科技', '互联网/社交', '深圳市', '广东省', '广东省深圳市南山区科技园', 'HR王经理', '0755-87654321', '中国领先的互联网增值服务提供商', 'ACTIVE'),
+('字节跳动', '互联网/信息', '北京市', '北京市', '北京市海淀区中关村', 'HR张经理', '010-11112222', '全球知名的内容推荐平台', 'ACTIVE'),
+('百度在线', '互联网/搜索', '北京市', '北京市', '北京市海淀区上地十街', 'HR刘经理', '010-33334444', '全球领先的中文搜索引擎', 'ACTIVE'),
+('美团点评', '互联网/生活', '北京市', '北京市', '北京市朝阳区望京', 'HR陈经理', '010-55556666', '本地生活服务平台', 'ACTIVE'),
+('华为技术', '通信/科技', '深圳市', '广东省', '广东省深圳市龙岗区坂田华为基地', 'HR赵经理', '0755-66667777', '全球领先的信息与通信解决方案供应商', 'ACTIVE'),
+('小米科技', '互联网/硬件', '北京市', '北京市', '北京市海淀区清河中街68号', 'HR钱经理', '010-88889999', '以手机、智能硬件和IoT平台为核心的互联网公司', 'ACTIVE'),
+('网易公司', '互联网/游戏', '杭州市', '浙江省', '浙江省杭州市滨江区长河街道网商路599号', 'HR孙经理', '0571-00001111', '中国领先的互联网技术公司', 'ACTIVE');
+
+-- =============================================
+-- 五、初始化实习信息
+-- =============================================
+INSERT INTO `internships` (`student_id`, `teacher_id`, `company_id`, `company`, `company_name`, `position`, `address`, `company_contact`, `company_phone`, `start_date`, `end_date`, `status`, `description`, `work_content`) VALUES
+(5, 2, 2, '腾讯科技', '腾讯科技', '前端开发实习生', '广东省深圳市南山区科技园', 'HR王经理', '0755-87654321', '2024-03-01', '2024-06-30', 'ONGOING',
+ '在腾讯微信支付部门进行前端开发实习',
+ '1. 参与微信支付商户平台的前端开发\n2. 使用Vue3重构老旧页面\n3. 优化前端性能'),
+(6, 3, 3, '字节跳动', '字节跳动', '算法实习生', '北京市海淀区中关村', 'HR张经理', '010-11112222', '2024-02-15', '2024-05-15', 'COMPLETED',
+ '在字节跳动推荐算法部门进行算法研究实习',
+ '1. 参与推荐系统的算法优化\n2. 数据分析和特征工程\n3. 模型训练和效果评估'),
+(7, 3, 4, '百度在线', '百度在线', '测试开发实习生', '北京市海淀区上地十街', 'HR刘经理', '010-33334444', '2024-03-15', '2024-07-15', 'ONGOING',
+ '在百度搜索质量部门进行测试开发实习',
+ '1. 编写自动化测试脚本\n2. 搭建测试框架\n3. 执行性能测试'),
+(8, 2, 5, '美团点评', '美团点评', '产品运营实习生', '北京市朝阳区望京', 'HR陈经理', '010-55556666', '2024-04-01', '2024-07-01', 'PENDING',
+ '在美团外卖部门进行产品运营实习',
+ '1. 协助产品经理进行需求调研\n2. 数据分析和报表制作\n3. 用户反馈收集和处理'),
+(9, 2, 1, '阿里巴巴集团', '阿里巴巴集团', 'Java开发实习生', '浙江省杭州市余杭区文一西路969号', 'HR李经理', '0571-12345678', '2024-03-01', '2024-06-30', 'ONGOING',
+ '在阿里巴巴核心交易系统部门进行Java后端开发实习',
+ '1. 参与核心交易系统的日常开发和维护\n2. 负责订单模块的功能优化\n3. 编写单元测试和集成测试');
+
+-- =============================================
+-- 六、初始化汇报数据
+-- =============================================
+INSERT INTO `reports` (`internship_id`, `student_id`, `title`, `report_type`, `content`, `summary`, `problem`, `solution`, `plan`, `report_date`, `week_number`, `status`, `reviewer_id`, `review_comment`, `score`, `review_time`) VALUES
+(1, 4, '第一周实习周报', 'WEEKLY',
+ '本周是实习的第一周，主要完成了入职培训和项目熟悉工作。',
+ '1. 完成公司入职培训\n2. 熟悉开发环境和工具\n3. 了解项目整体架构',
+ '对公司的内部框架还不够熟悉，编码效率较低',
+ '多阅读项目文档，向导师请教',
+ '深入学习内部框架，开始接手简单的开发任务',
+ '2024-03-08', 1, 'REVIEWED', 2, '第一周表现良好，继续保持学习热情。', 85, '2024-03-09 10:00:00'),
+(1, 4, '第二周实习周报', 'WEEKLY',
+ '本周开始参与实际开发工作，完成了一个简单的功能模块。',
+ '1. 完成用户登录模块开发\n2. 编写单元测试\n3. 参与代码评审',
+ '对业务逻辑理解还不够深入',
+ '与产品经理沟通确认需求细节',
+ '继续完善登录模块，开始订单模块开发',
+ '2024-03-15', 2, 'REVIEWED', 2, '进步明显，代码质量有提升。', 88, '2024-03-16 14:30:00'),
+(1, 4, '第三周实习周报', 'WEEKLY',
+ '本周主要进行订单模块的开发工作。',
+ '1. 完成订单创建接口\n2. 完成订单查询接口\n3. 优化数据库查询性能',
+ 'SQL查询性能存在瓶颈',
+ '添加适当的索引，优化查询语句',
+ '完成订单修改和删除功能',
+ '2024-03-22', 3, 'SUBMITTED', NULL, NULL, NULL, NULL),
+(2, 5, '第一周实习周报', 'WEEKLY',
+ '本周完成了入职培训和项目环境搭建。',
+ '1. 完成入职培训\n2. 搭建前端开发环境\n3. 熟悉Vue3项目结构',
+ '对Vue3的Composition API不够熟悉',
+ '学习官方文档和示例代码',
+ '深入学习Vue3和TypeScript',
+ '2024-03-08', 1, 'REVIEWED', 2, '入门顺利，继续加油。', 82, '2024-03-09 11:00:00'),
+(2, 5, '第二周实习周报', 'WEEKLY',
+ '本周开始进行实际的前端开发工作。',
+ '1. 完成首页改版\n2. 封装通用组件\n3. 优化页面加载速度',
+ '组件复用性不够好',
+ '重构组件，提取公共逻辑',
+ '完成支付页面的重构',
+ '2024-03-15', 2, 'SUBMITTED', NULL, NULL, NULL, NULL),
+(3, 6, '三月实习月报', 'MONTHLY',
+ '三月完成了推荐算法的初步优化工作。',
+ '1. 完成特征工程的优化\n2. 训练新的推荐模型\n3. A/B测试效果提升5%',
+ '模型训练时间较长',
+ '使用GPU加速训练',
+ '尝试新的模型架构',
+ '2024-03-31', NULL, 'REVIEWED', 3, '工作成果显著，算法能力提升明显。', 92, '2024-04-02 09:00:00'),
+(3, 6, '实习总结报告', 'FINAL',
+ '在字节跳动三个月的实习总结报告。',
+ '1. 完成推荐算法优化项目\n2. 发表技术博客3篇\n3. 获得转正offer',
+ '如何平衡业务需求和技术探索',
+ '与导师沟通确定优先级',
+ '毕业后正式入职',
+ '2024-05-15', NULL, 'REVIEWED', 3, '优秀实习生，祝贺获得转正offer！', 95, '2024-05-16 15:00:00');
+
+-- =============================================
+-- 七、初始化位置示例数据
+-- =============================================
+INSERT INTO `location_records` (`student_id`, `internship_id`, `longitude`, `latitude`, `address`, `city`, `province`, `record_type`, `remark`) VALUES
+(4, 1, 120.0123, 30.2845, '浙江省杭州市余杭区文一西路969号', '杭州市', '浙江省', 'CHECK_IN', '上班打卡'),
+(4, 1, 120.0156, 30.2878, '浙江省杭州市余杭区未来科技城', '杭州市', '浙江省', 'CHECK_OUT', '下班打卡'),
+(5, 2, 113.9438, 22.5485, '广东省深圳市南山区科技园', '深圳市', '广东省', 'CHECK_IN', '上班打卡'),
+(5, 2, 113.9450, 22.5500, '广东省深圳市南山区腾讯大厦', '深圳市', '广东省', 'CHECK_OUT', '下班打卡'),
+(6, 3, 116.3160, 39.9845, '北京市海淀区中关村', '北京市', '北京市', 'CHECK_IN', '上班打卡'),
+(7, 4, 116.2980, 40.0450, '北京市海淀区上地十街', '北京市', '北京市', 'CHECK_IN', '上班打卡'),
+(8, 5, 116.4830, 40.0020, '北京市朝阳区望京', '北京市', '北京市', 'CHECK_IN', '上班打卡');
+
+-- =============================================
+-- 八、更新企业学生计数
+-- =============================================
+UPDATE `companies` c SET `student_count` = (
+    SELECT COUNT(*) FROM `internships` i WHERE i.company_id = c.id AND i.status IN ('ONGOING', 'COMPLETED')
+);
+
+-- =============================================
+-- 九、恢复外键检查并验证
+-- =============================================
+SET FOREIGN_KEY_CHECKS = 1;
+
+SELECT '========== 数据初始化验证 ==========' AS info;
+
+SELECT '用户统计' AS item, COUNT(*) AS count FROM `users`
+UNION ALL SELECT '  - 管理员', COUNT(*) FROM `users` WHERE `role` = 'ADMIN'
+UNION ALL SELECT '  - 导师', COUNT(*) FROM `users` WHERE `role` = 'TEACHER'
+UNION ALL SELECT '  - 学生', COUNT(*) FROM `users` WHERE `role` = 'STUDENT'
+UNION ALL SELECT '实习记录', COUNT(*) FROM `internships`
+UNION ALL SELECT '汇报记录', COUNT(*) FROM `reports`
+UNION ALL SELECT '企业记录', COUNT(*) FROM `companies`
+UNION ALL SELECT '位置记录', COUNT(*) FROM `location_records`
+UNION ALL SELECT '通知表', COUNT(*) FROM `notifications`
+UNION ALL SELECT '评价表', COUNT(*) FROM `evaluations`;
+
+SELECT '数据库 v2.2.0 初始化完成! 所有表已就绪。' AS message;
